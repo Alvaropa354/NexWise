@@ -1,4 +1,4 @@
-name: Expo Build
+name: Deploy Expo Web
 
 on:
   push:
@@ -10,16 +10,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: 18
 
       - name: Install dependencies
         run: npm install
 
-      - name: Start Expo (dev)
-        run: npm start
+      - name: Install Expo CLI
+        run: npm install -g expo-cli
+
+      - name: Build for Web
+        run: expo export:web
