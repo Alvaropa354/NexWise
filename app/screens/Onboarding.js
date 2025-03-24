@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import {
   View,
   ScrollView,
@@ -6,6 +6,7 @@ import {
   Image,
   Dimensions,
   TouchableOpacity,
+  Animated,
 } from 'react-native';
 import {
   Text,
@@ -18,12 +19,46 @@ import {
   Card,
   Divider,
   useTheme,
+  IconButton,
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { FABContext } from '../../App';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+
+const OnboardingScreen = ({ title, description, image, index, totalScreens }) => {
+  const theme = useTheme();
+  
+  return (
+    <View style={styles.onboardingScreen}>
+      <View style={styles.onboardingImageContainer}>
+        <Image 
+          source={{ uri: image }}
+          style={styles.onboardingImage}
+          resizeMode="contain"
+        />
+      </View>
+      
+      <View style={styles.onboardingContent}>
+        <Text style={[styles.onboardingTitle, { color: theme.colors.primary }]}>{title}</Text>
+        <Text style={styles.onboardingDescription}>{description}</Text>
+        
+        <View style={styles.paginationContainer}>
+          {Array.from({ length: totalScreens }).map((_, i) => (
+            <View 
+              key={i} 
+              style={[
+                styles.paginationDot, 
+                { backgroundColor: i === index ? theme.colors.primary : '#E0E0E0' }
+              ]}
+            />
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+};
 
 export default function Onboarding() {
   const navigation = useNavigation();
@@ -31,6 +66,27 @@ export default function Onboarding() {
   const [fabOpen, setFabOpen] = useState(false);
   const { fabState, showFAB, hideFAB } = useContext(FABContext);
   const theme = useTheme();
+  const [currentScreen, setCurrentScreen] = useState(0);
+  const scrollViewRef = useRef(null);
+  const scrollX = useRef(new Animated.Value(0)).current;
+
+  const onboardingScreens = [
+    {
+      title: "Descubre Oportunidades",
+      description: "NexWise conecta problemas reales con oportunidades de negocio mediante inteligencia artificial avanzada.",
+      image: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=800&q=80"
+    },
+    {
+      title: "Analiza con IA",
+      description: "Obtén análisis detallados de viabilidad, mercado y competencia para cada idea u observación.",
+      image: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=800&q=80"
+    },
+    {
+      title: "Monetiza tu Conocimiento",
+      description: "Gana comisiones cuando otros usuarios acceden a tus observaciones e ideas de negocio.",
+      image: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=800&q=80"
+    }
+  ];
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
@@ -47,6 +103,11 @@ export default function Onboarding() {
       blurSubscribe();
     };
   }, [navigation]);
+
+  const handleScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+    { useNativeDriver: false }
+  );
 
   const navigateToNotifications = () => {
     navigation.navigate('Notifications');
@@ -72,14 +133,33 @@ export default function Onboarding() {
     navigation.navigate('CreateProblem');
   };
 
+  const handleNext = () => {
+    if (currentScreen < onboardingScreens.length - 1) {
+      const nextScreen = currentScreen + 1;
+      setCurrentScreen(nextScreen);
+      scrollViewRef.current?.scrollTo({ x: nextScreen * width, animated: true });
+    } else {
+      // Navigate to dashboard or main screen
+      navigation.navigate('Dashboard');
+    }
+  };
+
+  const handleSkip = () => {
+    navigation.navigate('Dashboard');
+  };
+
   const testimonials = [
     {
       quote: "NexWise me ayudó a descubrir un nicho que duplicó mis ganancias.",
-      author: "Emprendedor"
+      author: "Emprendedor",
+      company: "Startup Tech",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=John"
     },
     {
       quote: "La precisión de los análisis facilitó la expansión internacional de nuestra empresa.",
-      author: "CEO TEC"
+      author: "CEO",
+      company: "Global Solutions",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Maria"
     }
   ];
 
@@ -103,207 +183,183 @@ export default function Onboarding() {
     {
       question: "¿Es seguro compartir información en NexWise?",
       answer: "Sí, NexWise implementa protocolos de cifrado avanzados y cumple con normativas internacionales de protección de datos. Además, puedes publicar de forma anónima si prefieres mantener la confidencialidad."
-    },
-    {
-      question: "¿Qué tipo de análisis realiza NexWise sobre un problema?",
-      answer: "La plataforma genera estudios de mercado personalizados, análisis de viabilidad, identificación de tendencias y comparación con competidores a nivel local, nacional e internacional."
-    },
-    {
-      question: "¿Puedo eliminar mi cuenta y mis datos en cualquier momento?",
-      answer: "Sí, puedes gestionar tu privacidad y eliminar tu cuenta cuando lo desees desde la configuración de usuario."
-    },
-    {
-      question: "¿Qué sectores cubre NexWise?",
-      answer: "NexWise abarca sectores como tecnología, salud, sostenibilidad, educación, turismo, agroindustria y más. Puedes personalizar tu experiencia según tus áreas de interés."
-    },
-    {
-      question: "¿Cómo puedo reportar un problema técnico o hacer sugerencias?",
-      answer: "Desde la configuración de la app encontrarás la opción de 'Reportar un problema' o 'Enviar sugerencias'. Nuestro equipo de soporte está disponible para atender cualquier inconveniente."
-    },
-    {
-      question: "¿NexWise ofrece oportunidades para empresas y equipos?",
-      answer: "Sí, las empresas pueden aprovechar planes personalizados, acceso a estudios estratégicos y API para integrar NexWise en sus operaciones de innovación."
-    },
-    {
-      question: "¿Puedo acceder a NexWise desde cualquier país?",
-      answer: "Sí, la plataforma es accesible globalmente y cuenta con herramientas de traducción para facilitar la colaboración internacional."
     }
   ];
 
   const onStateChange = ({ open }) => setFabOpen(open);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Appbar.Header style={styles.appBar}>
-        <Appbar.Content title="NexWise" />
-        <Appbar.Action icon="eye" onPress={() => navigation.navigate('Dashboard')} />
-        <Appbar.Action icon="bell" onPress={navigateToNotifications} />
-        <Appbar.Action icon="lightbulb" onPress={navigateToBusinessIdeas} />
-        <Appbar.Action icon="crown" color="#FFD700" onPress={navigateToSubscriptions} />
-        <Appbar.Action icon="account" onPress={handleProfileNavigation} />
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <Appbar.Header style={[styles.appBar, { backgroundColor: theme.colors.surface }]}>
+        <View style={styles.logoContainer}>
+          <Image 
+            source={{ uri: 'https://api.dicebear.com/7.x/avataaars/svg?seed=nexwise' }}
+            style={styles.logo}
+          />
+          <Text style={[styles.logoText, { color: theme.colors.primary }]}>NexWise</Text>
+        </View>
+        <View style={styles.appBarActions}>
+          <Appbar.Action icon="eye" color={theme.colors.primary} onPress={navigateToObservations} />
+          <Appbar.Action icon="bell" color={theme.colors.primary} onPress={navigateToNotifications} />
+          <Appbar.Action icon="lightbulb" color={theme.colors.primary} onPress={navigateToBusinessIdeas} />
+          <Appbar.Action icon="account" color={theme.colors.primary} onPress={handleProfileNavigation} />
+        </View>
       </Appbar.Header>
 
+      {/* Onboarding Carousel */}
+      <View style={styles.onboardingContainer}>
+        <Animated.ScrollView
+          ref={scrollViewRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          style={styles.onboardingScroll}
+        >
+          {onboardingScreens.map((screen, index) => (
+            <OnboardingScreen
+              key={index}
+              title={screen.title}
+              description={screen.description}
+              image={screen.image}
+              index={index}
+              totalScreens={onboardingScreens.length}
+            />
+          ))}
+        </Animated.ScrollView>
+        
+        <View style={styles.onboardingButtonsContainer}>
+          <Button 
+            mode="text" 
+            onPress={handleSkip}
+            style={styles.skipButton}
+          >
+            Saltar
+          </Button>
+          
+          <Button 
+            mode="contained" 
+            onPress={handleNext}
+            style={styles.nextButton}
+            contentStyle={styles.nextButtonContent}
+          >
+            {currentScreen === onboardingScreens.length - 1 ? 'Comenzar' : 'Siguiente'}
+          </Button>
+        </View>
+      </View>
+
       <ScrollView style={styles.scrollView}>
-        <Surface style={styles.heroSection}>
-          <Text style={styles.heroTitle}>
-            Bienvenido a NexWise
-          </Text>
-          <Text style={styles.heroSubtitle}>
-            Descubre cómo puedes beneficiarte de nuestra plataforma
-          </Text>
-        </Surface>
-
-        <List.Section>
-          <List.Accordion
-            title="¿Por qué elegir NexWise?"
-            style={styles.accordion}>
-            <View style={styles.content}>
-              <Text style={styles.contentTitle}>Análisis Predictivo Avanzado</Text>
-              <Text style={styles.contentText}>
-                Ofrecemos análisis exhaustivos mediante IA avanzada, incluyendo:
-                • Estudios de mercado potencial
-                • Análisis competitivo dinámico
-                • Predicción precisa de demanda
-              </Text>
-
-              <Text style={styles.contentTitle}>Accesibilidad Premium</Text>
-              <Text style={styles.contentText}>
-                Precios optimizados para emprendedores y PyMEs, garantizando acceso a información estratégica de alta calidad.
-              </Text>
-
-              <Text style={styles.contentTitle}>Retorno de Inversión</Text>
-              <Text style={styles.contentText}>
-                Accede a información estratégica con potencial de generar retornos significativamente superiores a la inversión inicial.
-              </Text>
-            </View>
-          </List.Accordion>
-
-          <List.Accordion
-            title="Sistema de Recompensas"
-            style={styles.accordion}>
-            <View style={styles.content}>
-              <Text style={styles.contentTitle}>Gana por Compartir</Text>
-              <Text style={styles.contentText}>
-                • 10% de comisión por observaciones de negocio
-                • 20% de comisión por ideas de negocio completas
-              </Text>
-
-              <Text style={styles.contentTitle}>Ejemplo Práctico</Text>
-              <Text style={styles.contentText}>
-                Si 100 usuarios acceden a tu observación pagando $20 cada uno, recibirás $200 automáticamente.
-              </Text>
-
-              <View style={styles.highlightBox}>
-                <Text style={styles.highlightText}>
-                  "Convierte tus experiencias en ingresos reales. Cada publicación puede ser una fuente continua de ingresos mientras ayudas a otros emprendedores."
-                </Text>
-              </View>
-            </View>
-          </List.Accordion>
-        </List.Section>
-
-        <Surface style={styles.aboutSection}>
-          <Text style={styles.sectionTitle}>¿Qué es NexWise?</Text>
-          <Text style={styles.aboutText}>
+        <Surface style={[styles.section, styles.aboutSection]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>¿Qué es NexWise?</Text>
+          <Text style={styles.sectionText}>
             NexWise es una plataforma innovadora que conecta problemas reales con oportunidades de negocio mediante inteligencia artificial avanzada. Su objetivo principal es transformar necesidades identificadas en soluciones viables, optimizando la innovación y colaboración global.
           </Text>
-          <Divider style={styles.divider} />
-          <Text style={styles.differentiationText}>
-            NexWise no solo identifica oportunidades, sino que también proporciona estudios de mercado personalizados, análisis competitivo profundo y recomendaciones estratégicas que permiten a sus usuarios adelantarse a las tendencias emergentes y diferenciarse claramente de su competencia.
-          </Text>
         </Surface>
 
-        <Surface style={styles.tutorialSection}>
-          <Text style={styles.sectionTitle}>Guía Rápida</Text>
-          <List.Section>
-            <List.Item
-              title="1. Regístrate"
-              description="Define claramente tu perfil"
-              left={props => <List.Icon {...props} icon="account-plus" />}
-            />
-            <List.Item
-              title="2. Explica un problema"
-              description="De manera específica y detallada"
-              left={props => <List.Icon {...props} icon="pencil" />}
-            />
-            <List.Item
-              title="3. Recibe análisis"
-              description="Análisis automatizado de viabilidad y potencial"
-              left={props => <List.Icon {...props} icon="chart-bar" />}
-            />
-            <List.Item
-              title="4. Explora soluciones"
-              description="Soluciones estratégicas y oportunidades recomendadas"
-              left={props => <List.Icon {...props} icon="lightbulb" />}
-            />
-            <List.Item
-              title="5. Conecta"
-              description="Con expertos y emprendedores"
-              left={props => <List.Icon {...props} icon="account-group" />}
-            />
-          </List.Section>
-        </Surface>
-
-        <View style={styles.testimonialsSection}>
-          <Text style={styles.sectionTitle}>Testimonios</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {testimonials.map((testimonial, index) => (
-              <Surface key={index} style={styles.testimonialCard}>
-                <Text style={styles.testimonialQuote}>{testimonial.quote}</Text>
-                <Text style={styles.testimonialAuthor}>- {testimonial.author}</Text>
-              </Surface>
-            ))}
-          </ScrollView>
-        </View>
-
-        <Surface style={styles.reasonsSection}>
-          <Text style={styles.sectionTitle}>¿Por qué elegir NexWise?</Text>
-          <View style={styles.reasonsList}>
-            <Card style={styles.reasonCard}>
-              <Card.Content>
-                <Text style={styles.reasonTitle}>Rentabilidad Comprobada</Text>
-                <Text style={styles.reasonDescription}>
-                  Convierte desafíos cotidianos en fuentes reales de ingresos
-                </Text>
-              </Card.Content>
-            </Card>
-            <Card style={styles.reasonCard}>
-              <Card.Content>
-                <Text style={styles.reasonTitle}>Facilidad de Uso</Text>
-                <Text style={styles.reasonDescription}>
-                  Acceso inmediato a información estratégica sin grandes inversiones
-                </Text>
-              </Card.Content>
-            </Card>
-            <Card style={styles.reasonCard}>
-              <Card.Content>
-                <Text style={styles.reasonTitle}>Innovación Constante</Text>
-                <Text style={styles.reasonDescription}>
-                  Actualización continua mediante inteligencia artificial avanzada
-                </Text>
-              </Card.Content>
-            </Card>
+        <Surface style={[styles.section, styles.featuresSection]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>Características Principales</Text>
+          
+          <View style={styles.featuresList}>
+            <View style={styles.featureItem}>
+              <IconButton icon="brain" size={32} iconColor={theme.colors.primary} style={styles.featureIcon} />
+              <View style={styles.featureContent}>
+                <Text style={styles.featureTitle}>Análisis con IA</Text>
+                <Text style={styles.featureDescription}>Análisis predictivo avanzado de mercados y tendencias</Text>
+              </View>
+            </View>
+            
+            <View style={styles.featureItem}>
+              <IconButton icon="chart-line" size={32} iconColor={theme.colors.primary} style={styles.featureIcon} />
+              <View style={styles.featureContent}>
+                <Text style={styles.featureTitle}>Estudios de Mercado</Text>
+                <Text style={styles.featureDescription}>Datos precisos sobre competidores y oportunidades</Text>
+              </View>
+            </View>
+            
+            <View style={styles.featureItem}>
+              <IconButton icon="cash-multiple" size={32} iconColor={theme.colors.primary} style={styles.featureIcon} />
+              <View style={styles.featureContent}>
+                <Text style={styles.featureTitle}>Monetización</Text>
+                <Text style={styles.featureDescription}>Gana comisiones por tus observaciones e ideas</Text>
+              </View>
+            </View>
           </View>
         </Surface>
 
-        <Surface style={styles.faqSection}>
-          <Text style={styles.sectionTitle}>Preguntas Frecuentes</Text>
-          <List.Section>
-            {faqs.map((faq, index) => (
-              <List.Accordion
-                key={index}
-                title={faq.question}
-                style={styles.faqItem}
-              >
-                <List.Item
-                  description={faq.answer}
-                  descriptionNumberOfLines={0}
-                  style={styles.faqAnswer}
-                />
-              </List.Accordion>
+        <Surface style={[styles.section, styles.testimonialsSection]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>Testimonios</Text>
+          
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.testimonialsScroll}>
+            {testimonials.map((testimonial, index) => (
+              <Card key={index} style={styles.testimonialCard}>
+                <Card.Content>
+                  <View style={styles.testimonialHeader}>
+                    <Image 
+                      source={{ uri: testimonial.avatar }}
+                      style={styles.testimonialAvatar}
+                    />
+                    <View style={styles.testimonialAuthorInfo}>
+                      <Text style={styles.testimonialAuthor}>{testimonial.author}</Text>
+                      <Text style={styles.testimonialCompany}>{testimonial.company}</Text>
+                    </View>
+                  </View>
+                  
+                  <Text style={styles.testimonialQuote}>"{testimonial.quote}"</Text>
+                </Card.Content>
+              </Card>
             ))}
-          </List.Section>
+          </ScrollView>
         </Surface>
+
+        <Surface style={[styles.section, styles.faqSection]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>Preguntas Frecuentes</Text>
+          
+          {faqs.map((faq, index) => (
+            <List.Accordion
+              key={index}
+              title={faq.question}
+              titleStyle={styles.faqQuestion}
+              style={styles.faqItem}
+            >
+              <View style={styles.faqAnswerContainer}>
+                <Text style={styles.faqAnswer}>{faq.answer}</Text>
+              </View>
+            </List.Accordion>
+          ))}
+          
+          <Button 
+            mode="outlined" 
+            onPress={() => setFaqVisible(true)}
+            style={styles.moreFaqButton}
+            labelStyle={{ color: theme.colors.primary }}
+          >
+            Ver más preguntas
+          </Button>
+        </Surface>
+
+        <View style={styles.getStartedSection}>
+          <Text style={styles.getStartedTitle}>¿Listo para comenzar?</Text>
+          <Button 
+            mode="contained" 
+            onPress={navigateToObservations}
+            style={styles.getStartedButton}
+            contentStyle={styles.getStartedButtonContent}
+            labelStyle={styles.getStartedButtonLabel}
+          >
+            Explorar Observaciones
+          </Button>
+          
+          <Button 
+            mode="outlined" 
+            onPress={navigateToBusinessIdeas}
+            style={styles.exploreIdeasButton}
+            contentStyle={styles.getStartedButtonContent}
+            labelStyle={{ color: theme.colors.primary }}
+          >
+            Ver Ideas de Negocio
+          </Button>
+        </View>
       </ScrollView>
 
       <Portal>
@@ -311,6 +367,7 @@ export default function Onboarding() {
           open={fabOpen}
           visible={fabState.screen === 'Onboarding' && fabState.type === 'navigation'}
           icon={fabOpen ? 'close' : 'plus'}
+          fabStyle={{ backgroundColor: theme.colors.primary }}
           actions={[
             {
               icon: 'lightbulb',
@@ -319,6 +376,7 @@ export default function Onboarding() {
                 hideFAB();
                 navigation.navigate('BusinessIdeas');
               },
+              color: theme.colors.primary
             },
             {
               icon: 'eye',
@@ -327,6 +385,7 @@ export default function Onboarding() {
                 hideFAB();
                 navigation.navigate('Dashboard');
               },
+              color: theme.colors.primary
             }
           ]}
           onStateChange={onStateChange}
@@ -345,149 +404,235 @@ export default function Onboarding() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   appBar: {
-    backgroundColor: '#fff',
-    elevation: 4,
+    elevation: 2,
+    justifyContent: 'space-between',
+  },
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logo: {
+    width: 32,
+    height: 32,
+    marginRight: 8,
+  },
+  logoText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  appBarActions: {
+    flexDirection: 'row',
+  },
+  onboardingContainer: {
+    height: height * 0.6,
+  },
+  onboardingScroll: {
+    flex: 1,
+  },
+  onboardingScreen: {
+    width,
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  onboardingImageContainer: {
+    width: '100%',
+    height: '50%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  onboardingImage: {
+    width: '80%',
+    height: '80%',
+  },
+  onboardingContent: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  onboardingTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  onboardingDescription: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 24,
+    color: '#666',
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    marginTop: 16,
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginHorizontal: 4,
+  },
+  onboardingButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+  },
+  skipButton: {
+    alignSelf: 'center',
+  },
+  nextButton: {
+    borderRadius: 8,
+    elevation: 0,
+  },
+  nextButtonContent: {
+    paddingHorizontal: 16,
+    height: 48,
   },
   scrollView: {
     flex: 1,
   },
-  heroSection: {
+  section: {
+    margin: 16,
     padding: 24,
-    margin: 16,
-    borderRadius: 8,
-    backgroundColor: '#fff',
-    elevation: 4,
-  },
-  heroTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    color: '#1a237e',
-  },
-  heroSubtitle: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#424242',
-  },
-  accordion: {
-    backgroundColor: '#f5f5f5',
-    marginBottom: 8,
-  },
-  content: {
-    padding: 16,
-  },
-  contentTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    marginTop: 16,
-  },
-  contentText: {
-    fontSize: 14,
-    lineHeight: 20,
-    opacity: 0.8,
-  },
-  highlightBox: {
-    backgroundColor: '#e3f2fd',
-    padding: 16,
-    borderRadius: 8,
-    marginTop: 16,
-  },
-  highlightText: {
-    fontStyle: 'italic',
-    textAlign: 'center',
-  },
-  aboutSection: {
-    margin: 16,
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: '#fff',
-  },
-  aboutText: {
-    fontSize: 15,
-    lineHeight: 24,
-    color: '#424242',
-    marginBottom: 16,
-  },
-  divider: {
-    marginVertical: 16,
-  },
-  differentiationText: {
-    fontSize: 15,
-    lineHeight: 24,
-    color: '#424242',
-  },
-  tutorialSection: {
-    margin: 16,
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: '#fff',
-  },
-  testimonialsSection: {
-    padding: 16,
-  },
-  testimonialCard: {
-    width: width * 0.8,
-    padding: 16,
-    marginRight: 16,
-    borderRadius: 8,
-    backgroundColor: '#fff',
+    borderRadius: 12,
     elevation: 2,
   },
-  testimonialQuote: {
-    fontSize: 16,
-    fontStyle: 'italic',
-    marginBottom: 8,
-    color: '#424242',
-  },
-  testimonialAuthor: {
-    fontSize: 14,
+  sectionTitle: {
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#1a237e',
-  },
-  reasonsSection: {
-    margin: 16,
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: '#fff',
-  },
-  reasonsList: {
-    marginTop: 8,
-  },
-  reasonCard: {
     marginBottom: 16,
   },
-  reasonTitle: {
+  sectionText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#424242',
+  },
+  featuresSection: {
+    marginTop: 8,
+  },
+  featuresList: {
+    marginTop: 8,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  featureIcon: {
+    margin: 0,
+    backgroundColor: '#F5F5F5',
+  },
+  featureContent: {
+    flex: 1,
+    marginLeft: 8,
+  },
+  featureTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 4,
-    color: '#1a237e',
   },
-  reasonDescription: {
+  featureDescription: {
     fontSize: 14,
-    color: '#616161',
+    color: '#666',
+    lineHeight: 20,
+  },
+  testimonialsScroll: {
+    marginTop: 8,
+  },
+  testimonialCard: {
+    width: width * 0.75,
+    marginRight: 16,
+    borderRadius: 12,
+    elevation: 2,
+  },
+  testimonialHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  testimonialAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: 12,
+  },
+  testimonialAuthorInfo: {
+    flex: 1,
+  },
+  testimonialAuthor: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  testimonialCompany: {
+    fontSize: 14,
+    color: '#666',
+  },
+  testimonialQuote: {
+    fontSize: 15,
+    fontStyle: 'italic',
+    lineHeight: 22,
+    color: '#424242',
   },
   faqSection: {
-    margin: 16,
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: '#fff',
+    marginTop: 8,
   },
   faqItem: {
-    backgroundColor: '#f5f5f5',
     marginBottom: 8,
-    borderRadius: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  faqQuestion: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  faqAnswerContainer: {
+    padding: 16,
+    paddingTop: 0,
   },
   faqAnswer: {
-    backgroundColor: '#fff',
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#424242',
   },
-  fab: {
-    position: 'absolute',
+  moreFaqButton: {
+    marginTop: 16,
+    borderRadius: 8,
+  },
+  getStartedSection: {
     margin: 16,
-    right: 0,
-    bottom: 0,
+    marginTop: 8,
+    padding: 24,
+    borderRadius: 12,
+    backgroundColor: '#F5F5F5',
+    alignItems: 'center',
   },
-}); 
+  getStartedTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  getStartedButton: {
+    width: '100%',
+    marginBottom: 12,
+    borderRadius: 8,
+    elevation: 0,
+  },
+  exploreIdeasButton: {
+    width: '100%',
+    borderRadius: 8,
+    borderWidth: 1.5,
+  },
+  getStartedButtonContent: {
+    height: 48,
+  },
+  getStartedButtonLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  fab: 

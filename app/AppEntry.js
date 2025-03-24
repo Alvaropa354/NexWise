@@ -1,23 +1,14 @@
 import React from 'react';
 import { registerRootComponent } from 'expo';
 import AppNavigation from './navigation';
-import { PaperProvider, DefaultTheme } from 'react-native-paper';
+import { PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-
-// Tema personalizado
-const theme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    primary: '#0088ff',
-    accent: '#4CAF50',
-  },
-};
+import { lightTheme } from './constants/theme';
 
 export default function AppEntry() {
   return (
     <SafeAreaProvider>
-      <PaperProvider theme={theme}>
+      <PaperProvider theme={lightTheme}>
         <AppNavigation />
       </PaperProvider>
     </SafeAreaProvider>
@@ -25,4 +16,4 @@ export default function AppEntry() {
 }
 
 // Esta función registra el componente raíz de la aplicación
-registerRootComponent(AppEntry); 
+registerRootComponent(AppEntry);
