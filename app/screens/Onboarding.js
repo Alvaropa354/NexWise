@@ -635,4 +635,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  fab: 
+  fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 0,
+  },
+}); 
