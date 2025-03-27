@@ -370,6 +370,15 @@ export default function Onboarding() {
           fabStyle={{ backgroundColor: theme.colors.primary }}
           actions={[
             {
+              icon: 'chart-bar',
+              label: 'Estudio de Mercado',
+              onPress: () => {
+                hideFAB();
+                navigation.navigate('MarketStudy');
+              },
+              color: theme.colors.primary
+            },
+            {
               icon: 'lightbulb',
               label: 'Ideas de Negocio',
               onPress: () => {

@@ -31,6 +31,9 @@ const ROUTES = {
   // Onboarding
   ONBOARDING: 'Onboarding',
   CREATE_PROBLEM: 'CreateProblem',
+  
+  // Estudio de Mercado
+  MARKET_STUDY: 'MarketStudy',
 };
 
 export default ROUTES; 

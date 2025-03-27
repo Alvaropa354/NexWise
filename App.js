@@ -20,6 +20,8 @@ import ChatScreen from './app/screens/ChatScreen';
 import BusinessIdeasScreen from './app/business-ideas';
 import CreateBusinessIdeaScreen from './app/create-business-idea';
 import OnboardingScreen from './app/screens/Onboarding';
+import MarketStudy from './app/market-study';
+import MarketStudyDetail from './app/screens/MarketStudyDetail';
 
 // Crear el contexto para los FABs
 export const FABContext = createContext();
@@ -65,20 +67,31 @@ export default function App() {
               screenOptions={{
                 headerShown: false,
                 cardStyle: { backgroundColor: '#fff' },
+                cardOverlayEnabled: true,
                 transitionSpec: {
                   open: {
-                    animation: 'timing',
+                    animation: 'spring',
                     config: {
-                      duration: 200
-                    }
+                      stiffness: 1000,
+                      damping: 500,
+                      mass: 3,
+                      overshootClamping: true,
+                      restDisplacementThreshold: 0.01,
+                      restSpeedThreshold: 0.01,
+                    },
                   },
                   close: {
-                    animation: 'timing',
+                    animation: 'spring',
                     config: {
-                      duration: 200
-                    }
-                  }
-                }
+                      stiffness: 1000,
+                      damping: 500,
+                      mass: 3,
+                      overshootClamping: true,
+                      restDisplacementThreshold: 0.01,
+                      restSpeedThreshold: 0.01,
+                    },
+                  },
+                },
               }}
             >
               <Stack.Screen 
@@ -168,6 +181,20 @@ export default function App() {
               <Stack.Screen 
                 name="CreateBusinessIdea" 
                 component={CreateBusinessIdeaScreen}
+                options={{
+                  cardStyle: { backgroundColor: '#fff' }
+                }}
+              />
+              <Stack.Screen 
+                name="MarketStudy" 
+                component={MarketStudy}
+                options={{
+                  cardStyle: { backgroundColor: '#fff' }
+                }}
+              />
+              <Stack.Screen 
+                name="MarketStudyDetail" 
+                component={MarketStudyDetail}
                 options={{
                   cardStyle: { backgroundColor: '#fff' }
                 }}

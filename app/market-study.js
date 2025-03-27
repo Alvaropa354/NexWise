@@ -3,506 +3,578 @@ import {
   View,
   StyleSheet,
   ScrollView,
-  FlatList,
-  TouchableOpacity,
-  ActivityIndicator
+  TextInput as RNTextInput
 } from 'react-native';
 import {
   Text,
   Button,
-  Card,
   Appbar,
   Surface,
-  Divider,
   Dialog,
   Portal,
   ProgressBar,
-  Chip,
+  TextInput,
+  HelperText,
+  Snackbar,
   IconButton,
-  Avatar
+  Divider,
+  Card,
+  Title,
+  Paragraph,
+  Chip,
+  List
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
-import ROUTES from './routes';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import axios from 'axios';
+
+// Configuración de Google AI Studio
+const GOOGLE_AI_API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+const GOOGLE_AI_MODEL = 'gemini-2.0-flash';
+const GOOGLE_AI_API_KEY = 'AIzaSyDl00qiwvrLuRKMNmwuTU6BWuNry5cplwI';
 
 export default function MarketStudy() {
   const navigation = useNavigation();
-  const route = useRoute();
-  
-  // Estado para almacenar la idea seleccionada para el estudio de mercado
-  const [selectedIdea, setSelectedIdea] = useState(null);
-  
-  // Estado para la lista de ideas de negocio del usuario
-  const [userIdeas, setUserIdeas] = useState([]);
-  
-  // Estados para carga y diálogos
-  const [isLoading, setIsLoading] = useState(true);
+
+  // Estados para el formulario
+  const [formData, setFormData] = useState({
+    concept: '',
+    valueProposition: '',
+    additionalDetails: '',
+    location: '',
+    businessType: '',
+    resources: '',
+    budget: '',
+    infrastructure: '',
+    team: '',
+    technology: ''
+  });
+
+  // Estados para validación y UI
+  const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
   const [studyDialogVisible, setStudyDialogVisible] = useState(false);
   const [currentStudy, setCurrentStudy] = useState(null);
-  const [isGeneratingStudy, setIsGeneratingStudy] = useState(false);
-  
-  // Cargar ideas al inicio
-  useEffect(() => {
-    loadUserIdeas();
-  }, []);
-  
-  // Cargar las ideas de negocio del usuario
-  const loadUserIdeas = async () => {
+  const [error, setError] = useState(null);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+
+  // Validar el formulario
+  const validateForm = () => {
+    const newErrors = {};
+    if (!formData.concept) newErrors.concept = 'El concepto es requerido';
+    if (!formData.valueProposition) newErrors.valueProposition = 'La propuesta de valor es requerida';
+    if (!formData.location) newErrors.location = 'La ubicación es requerida';
+    if (!formData.businessType) newErrors.businessType = 'El tipo de negocio es requerido';
+    if (!formData.budget) newErrors.budget = 'El presupuesto es requerido';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Generar el prompt para el análisis
+  const generatePrompt = (data) => {
+    return `Eres un experto analista de mercado. Genera un análisis detallado para esta idea de negocio y devuelve SOLO un objeto JSON válido sin texto adicional ni explicaciones:
+
+INFORMACIÓN DEL NEGOCIO:
+Concepto: ${data.concept}
+Propuesta de Valor: ${data.valueProposition}
+Detalles Adicionales: ${data.additionalDetails}
+Ubicación Preferida: ${data.location}
+Tipo de Negocio: ${data.businessType}
+Recursos:
+- Presupuesto: ${data.budget}
+- Infraestructura: ${data.infrastructure}
+- Equipo: ${data.team}
+- Tecnología: ${data.technology}
+
+IMPORTANTE: Tu respuesta debe ser ÚNICAMENTE un objeto JSON válido con esta estructura exacta. NO incluyas ningún texto adicional, comentarios o explicaciones:
+
+{
+  "marketSize": {
+    "total": 1000000,
+    "historical": {
+      "pastGrowth": 5.2,
+      "keyTrends": ["tendencia1", "tendencia2"]
+    },
+    "projections": {
+      "oneYear": 7.5,
+      "threeYears": 15.8,
+      "fiveYears": 25.3
+    }
+  },
+  "segmentation": {
+    "demographic": {
+      "age": ["18-25", "26-35"],
+      "gender": ["Masculino", "Femenino"],
+      "socioeconomic": ["Medio", "Medio-Alto"]
+    },
+    "psychographic": {
+      "interests": ["interés1", "interés2"],
+      "values": ["valor1", "valor2"],
+      "lifestyle": ["estilo1", "estilo2"]
+    },
+    "behavioral": {
+      "purchaseFrequency": ["Mensual", "Trimestral"],
+      "loyalty": ["Alta", "Media"],
+      "priceRange": ["€10-50", "€51-100"]
+    }
+  },
+  "growth": {
+    "shortTerm": 8.5,
+    "mediumTerm": 15.2,
+    "longTerm": 25.0,
+    "factors": ["factor1", "factor2"],
+    "barriers": ["barrera1", "barrera2"]
+  },
+  "entryBarriers": {
+    "regulatory": {
+      "level": "Medio",
+      "details": ["detalle1", "detalle2"],
+      "strategies": ["estrategia1", "estrategia2"]
+    },
+    "technological": {
+      "level": "Alto",
+      "details": ["detalle1", "detalle2"],
+      "strategies": ["estrategia1", "estrategia2"]
+    },
+    "financial": {
+      "level": "Medio",
+      "details": ["detalle1", "detalle2"],
+      "strategies": ["estrategia1", "estrategia2"]
+    },
+    "competitive": {
+      "level": "Alto",
+      "details": ["detalle1", "detalle2"],
+      "strategies": ["estrategia1", "estrategia2"]
+    }
+  },
+  "competition": {
+    "local": {
+      "companies": [
+        {"name": "Empresa1", "strengths": ["fortaleza1"], "weaknesses": ["debilidad1"]}
+      ],
+      "marketShare": 35.5
+    },
+    "national": {
+      "companies": [
+        {"name": "Empresa1", "strengths": ["fortaleza1"], "weaknesses": ["debilidad1"]}
+      ],
+      "marketShare": 45.2
+    },
+    "global": {
+      "companies": [
+        {"name": "Empresa1", "strengths": ["fortaleza1"], "weaknesses": ["debilidad1"]}
+      ],
+      "marketShare": 55.8
+    },
+    "opportunities": ["oportunidad1", "oportunidad2"]
+  },
+  "viability": {
+    "score": 85,
+    "localAcceptance": 75.5,
+    "nationalProjection": 82.3,
+    "estimatedROI": 25.5,
+    "strengths": ["fortaleza1", "fortaleza2"],
+    "weaknesses": ["debilidad1", "debilidad2"]
+  },
+  "marketState": {
+    "stage": "Crecimiento",
+    "annualGrowth": 12.5,
+    "potentialRegions": ["región1", "región2"],
+    "emergingTrends": ["tendencia1", "tendencia2"]
+  },
+  "optimalLocation": {
+    "city": "Ciudad",
+    "region": "Región",
+    "country": "País",
+    "advantages": ["ventaja1", "ventaja2"],
+    "considerations": ["consideración1", "consideración2"]
+  }
+}`;
+  };
+
+  // Guardar el estudio en AsyncStorage
+  const saveStudyToProfile = async (study) => {
     try {
-      setIsLoading(true);
-      const savedIdeas = await AsyncStorage.getItem('businessIdeas');
-      if (savedIdeas) {
-        const parsedIdeas = JSON.parse(savedIdeas);
-        setUserIdeas(parsedIdeas);
-      }
+      const existingStudies = await AsyncStorage.getItem('marketStudies');
+      const studies = existingStudies ? JSON.parse(existingStudies) : [];
+      
+      const newStudy = {
+        id: Date.now(),
+        date: new Date().toISOString(),
+        study
+      };
+      
+      studies.push(newStudy);
+      await AsyncStorage.setItem('marketStudies', JSON.stringify(studies));
     } catch (error) {
-      console.error('Error al cargar ideas:', error);
+      console.error('Error al guardar el estudio:', error);
+    }
+  };
+
+  // Limpiar y extraer JSON de la respuesta de Gemini
+  const sanitizeJsonResponse = (rawContent) => {
+    if (!rawContent) return null;
+    
+    try {
+      // 1. Eliminar texto adicional alrededor del JSON
+      let cleanContent = rawContent.trim();
+      
+      // 2. Si está envuelto en comillas triple (```json), extraer solo el contenido JSON
+      if (cleanContent.startsWith('```')) {
+        const jsonStart = cleanContent.indexOf('{');
+        const jsonEnd = cleanContent.lastIndexOf('}');
+        
+        if (jsonStart >= 0 && jsonEnd >= 0) {
+          cleanContent = cleanContent.substring(jsonStart, jsonEnd + 1);
+        } else {
+          // Intentar con la eliminación de ``` al inicio y final
+          cleanContent = cleanContent
+            .replace(/^```(json)?\s*/i, '')
+            .replace(/```\s*$/i, '');
+        }
+      }
+
+      // 3. Buscar el primer { y el último } si aún no es JSON válido
+      if (!isValidJSON(cleanContent)) {
+        const jsonStart = cleanContent.indexOf('{');
+        const jsonEnd = cleanContent.lastIndexOf('}');
+        
+        if (jsonStart >= 0 && jsonEnd >= 0 && jsonEnd > jsonStart) {
+          cleanContent = cleanContent.substring(jsonStart, jsonEnd + 1);
+        }
+      }
+      
+      // 4. Verificar si es un JSON válido
+      if (isValidJSON(cleanContent)) {
+        return cleanContent;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error en la sanitización del JSON:', error);
+      return null;
+    }
+  };
+
+  // Función auxiliar para verificar si una cadena es JSON válido
+  const isValidJSON = (str) => {
+    try {
+      JSON.parse(str);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  // Generar estudio de mercado
+  const generateMarketStudy = async () => {
+    if (!validateForm()) {
+      setError('Por favor, completa todos los campos requeridos');
+      setSnackbarVisible(true);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const prompt = generatePrompt(formData);
+      
+      console.log('Enviando análisis a Gemini...');
+      
+      const response = await axios({
+        method: 'POST',
+        url: `${GOOGLE_AI_API_BASE_URL}/${GOOGLE_AI_MODEL}:generateContent?key=${GOOGLE_AI_API_KEY}`,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        data: {
+          contents: [{
+            parts: [{
+              text: prompt
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            topP: 0.8,
+            maxOutputTokens: 2048
+          }
+        },
+        timeout: 60000
+      });
+
+      if (!response.data || !response.data.candidates || !response.data.candidates[0]) {
+        console.error('Respuesta inválida de Gemini:', response.data);
+        throw new Error('Respuesta inválida de la API');
+      }
+
+      const rawContent = response.data.candidates[0].content?.parts?.[0]?.text;
+      console.log('Contenido raw recibido:', rawContent);
+
+      if (!rawContent) {
+        console.error('No se recibió contenido en la respuesta');
+        throw new Error('Respuesta vacía de la API');
+      }
+
+      // Intentar limpiar el contenido antes de parsearlo
+      const cleanContent = sanitizeJsonResponse(rawContent);
+      console.log('Contenido limpio:', cleanContent);
+      
+      if (!cleanContent) {
+        console.error('Contenido raw que causó el error:', rawContent);
+        throw new Error('No se pudo procesar la respuesta de la API. La respuesta no es un JSON válido.');
+      }
+
+      const data = JSON.parse(cleanContent);
+      console.log('Datos parseados correctamente:', data);
+      setCurrentStudy(data);
+      await saveStudyToProfile(data);
+      setStudyDialogVisible(true);
+    } catch (error) {
+      console.error('Error al generar el estudio:', error);
+      setError(`Ha ocurrido un error al generar el estudio: ${error.message}`);
+      setSnackbarVisible(true);
     } finally {
       setIsLoading(false);
     }
   };
   
-  // Generar estudio de mercado para una idea específica
-  const generateMarketStudy = async (idea) => {
-    setSelectedIdea(idea);
-    setIsGeneratingStudy(true);
-    setStudyDialogVisible(true);
-    
-    try {
-      // Simular la generación del estudio (se reemplazaría con una llamada a la API real)
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Estudio de mercado simulado
-      const mockStudy = {
-        marketSize: {
-          local: Math.floor(Math.random() * 1000000) + 500000,
-          national: Math.floor(Math.random() * 10000000) + 5000000,
-          growth: (Math.random() * 15 + 2).toFixed(1)
-        },
-        projectedGrowth: {
-          shortTerm: (Math.random() * 20 + 5).toFixed(1),
-          mediumTerm: (Math.random() * 30 + 10).toFixed(1),
-          longTerm: (Math.random() * 50 + 20).toFixed(1)
-        },
-        entryBarriers: {
-          regulatory: Math.random() > 0.5 ? 'Alta' : 'Media',
-          technological: Math.random() > 0.5 ? 'Media' : 'Baja',
-          financial: Math.random() > 0.6 ? 'Alta' : 'Media',
-          competitive: Math.random() > 0.4 ? 'Alta' : 'Media'
-        },
-        underservedNiches: [
-          {
-            name: 'Segmento ' + idea.sector + ' Premium',
-            potential: Math.floor(Math.random() * 85) + 15,
-            description: 'Clientes de alto valor adquisitivo buscando soluciones exclusivas en ' + idea.sector
-          },
-          {
-            name: 'Segmento ' + idea.sector + ' Sostenible',
-            potential: Math.floor(Math.random() * 75) + 25,
-            description: 'Consumidores preocupados por el impacto ambiental en el sector ' + idea.sector
-          }
-        ],
-        demandPrediction: {
-          year1: Math.floor(Math.random() * 5000) + 500,
-          year3: Math.floor(Math.random() * 15000) + 5000,
-          year5: Math.floor(Math.random() * 50000) + 15000
-        },
-        competitiveAnalysis: {
-          local: Math.floor(Math.random() * 10) + 1,
-          national: Math.floor(Math.random() * 30) + 10,
-          global: Math.floor(Math.random() * 100) + 30,
-          competitorStrengths: [
-            'Posicionamiento de marca reconocido',
-            'Economías de escala establecidas',
-            'Canales de distribución consolidados'
-          ]
-        },
-        viability: {
-          score: Math.floor(Math.random() * 30) + 70,
-          marketAcceptance: (Math.random() * 40 + 60).toFixed(1),
-          nationalGrowth: (Math.random() * 50 + 50).toFixed(1)
-        },
-        marketState: {
-          stage: Math.random() > 0.5 ? 'Crecimiento' : 'Emergente',
-          saturation: (Math.random() * 50).toFixed(1),
-          trends: [
-            'Digitalización de servicios',
-            'Personalización de experiencias',
-            'Soluciones sostenibles'
-          ]
-        },
-        optimalLocation: {
-          city: 'Madrid',
-          region: 'Comunidad de Madrid',
-          advantages: [
-            'Alto poder adquisitivo',
-            'Acceso a talento cualificado',
-            'Infraestructura tecnológica avanzada'
-          ]
-        }
-      };
-      
-      setCurrentStudy(mockStudy);
-    } catch (error) {
-      console.error('Error al generar estudio de mercado:', error);
-    } finally {
-      setIsGeneratingStudy(false);
-    }
-  };
-  
-  // Renderizar cada idea en la lista
-  const renderIdeaItem = ({ item }) => (
-    <Card style={styles.ideaCard} onPress={() => generateMarketStudy(item)}>
-      <Card.Content>
-        <View style={styles.ideaHeader}>
-          <View style={styles.ideaHeaderText}>
-            <Text style={styles.ideaTitle}>{item.title}</Text>
-            <Text style={styles.ideaSector}>{item.sector}</Text>
-          </View>
-          <IconButton 
-            icon="chart-bar" 
-            size={24} 
-            color="#4CAF50"
-            onPress={() => generateMarketStudy(item)} 
-          />
-        </View>
-        <Text style={styles.ideaDescription} numberOfLines={2}>
-          {item.description}
-        </Text>
-        <View style={styles.ideaTags}>
-          {item.tags && item.tags.map((tag, index) => (
-            <Chip key={index} style={styles.tagChip}>
-              {tag}
-            </Chip>
-          ))}
-        </View>
-      </Card.Content>
-    </Card>
-  );
-  
   return (
     <SafeAreaView style={styles.container}>
-      <Appbar.Header style={styles.appBar}>
+      <Appbar.Header>
         <Appbar.BackAction onPress={() => navigation.goBack()} />
         <Appbar.Content title="Estudio de Mercado" />
+        <IconButton
+          icon="information"
+          onPress={() => {
+            // Mostrar información sobre el estudio de mercado
+          }}
+        />
       </Appbar.Header>
       
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0088ff" />
-          <Text style={styles.loadingText}>Cargando ideas de negocio...</Text>
-        </View>
-      ) : (
-        <>
-          {userIdeas.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="business-outline" size={80} color="#ccc" />
-              <Text style={styles.emptyText}>No tienes ideas de negocio</Text>
-              <Text style={styles.emptySubtext}>
-                Crea una idea de negocio para generar un estudio de mercado
-              </Text>
+      <ScrollView style={styles.content}>
+        <Surface style={styles.infoCard}>
+          <Title style={styles.sectionTitle}>Idea de Negocio</Title>
+          <Paragraph style={styles.description}>
+            Proporciona información detallada sobre tu idea de negocio para generar un análisis exhaustivo del mercado.
+          </Paragraph>
+        </Surface>
+
+        <Card style={styles.formCard}>
+          <Card.Content>
+            <Title style={styles.formTitle}>Fundamentos Básicos</Title>
+            
+            <TextInput
+              label="Concepto del Negocio"
+              value={formData.concept}
+              onChangeText={(text) => setFormData({...formData, concept: text})}
+              mode="outlined"
+              multiline
+              numberOfLines={3}
+              error={!!errors.concept}
+              style={styles.input}
+            />
+            {errors.concept && <HelperText type="error">{errors.concept}</HelperText>}
+
+            <TextInput
+              label="Propuesta de Valor"
+              value={formData.valueProposition}
+              onChangeText={(text) => setFormData({...formData, valueProposition: text})}
+              mode="outlined"
+              multiline
+              numberOfLines={3}
+              error={!!errors.valueProposition}
+              style={styles.input}
+            />
+            {errors.valueProposition && <HelperText type="error">{errors.valueProposition}</HelperText>}
+
+            <TextInput
+              label="Detalles Adicionales"
+              value={formData.additionalDetails}
+              onChangeText={(text) => setFormData({...formData, additionalDetails: text})}
+              mode="outlined"
+              multiline
+              numberOfLines={3}
+              style={styles.input}
+            />
+          </Card.Content>
+        </Card>
+
+        <Card style={styles.formCard}>
+          <Card.Content>
+            <Title style={styles.formTitle}>Ubicación y Tipo</Title>
+            
+            <TextInput
+              label="Ubicación Preferida"
+              value={formData.location}
+              onChangeText={(text) => setFormData({...formData, location: text})}
+              mode="outlined"
+              error={!!errors.location}
+              style={styles.input}
+            />
+            {errors.location && <HelperText type="error">{errors.location}</HelperText>}
+
+            <TextInput
+              label="Tipo de Negocio"
+              value={formData.businessType}
+              onChangeText={(text) => setFormData({...formData, businessType: text})}
+              mode="outlined"
+              error={!!errors.businessType}
+              style={styles.input}
+            />
+            {errors.businessType && <HelperText type="error">{errors.businessType}</HelperText>}
+          </Card.Content>
+        </Card>
+
+        <Card style={styles.formCard}>
+          <Card.Content>
+            <Title style={styles.formTitle}>Recursos Disponibles</Title>
+            
+            <TextInput
+              label="Presupuesto Estimado"
+              value={formData.budget}
+              onChangeText={(text) => setFormData({...formData, budget: text})}
+              mode="outlined"
+              style={styles.input}
+            />
+
+            <TextInput
+              label="Infraestructura"
+              value={formData.infrastructure}
+              onChangeText={(text) => setFormData({...formData, infrastructure: text})}
+              mode="outlined"
+              style={styles.input}
+            />
+
+            <TextInput
+              label="Equipo"
+              value={formData.team}
+              onChangeText={(text) => setFormData({...formData, team: text})}
+              mode="outlined"
+              style={styles.input}
+            />
+
+            <TextInput
+              label="Tecnología"
+              value={formData.technology}
+              onChangeText={(text) => setFormData({...formData, technology: text})}
+              mode="outlined"
+              style={styles.input}
+            />
+          </Card.Content>
+        </Card>
+
               <Button 
                 mode="contained" 
-                onPress={() => navigation.navigate(ROUTES.CREATE_BUSINESS_IDEA)}
-                style={styles.createButton}
-              >
-                Crear Idea de Negocio
+          onPress={generateMarketStudy}
+          style={styles.generateButton}
+          loading={isLoading}
+          disabled={isLoading}
+        >
+          {isLoading ? 'Generando...' : 'Generar Estudio de Mercado'}
               </Button>
-            </View>
-          ) : (
-            <FlatList
-              data={userIdeas}
-              renderItem={renderIdeaItem}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.ideasList}
-            />
-          )}
-        </>
-      )}
-      
-      {/* Diálogo de Estudio de Mercado */}
+      </ScrollView>
+
       <Portal>
         <Dialog
           visible={studyDialogVisible}
           onDismiss={() => setStudyDialogVisible(false)}
-          style={styles.studyDialog}
+          style={styles.dialog}
         >
-          {selectedIdea && (
-            <>
-              <Dialog.Title>Estudio de Mercado: {selectedIdea.title}</Dialog.Title>
-              <Dialog.ScrollArea style={styles.dialogScrollArea}>
-                <ScrollView>
-                  {isGeneratingStudy ? (
-                    <View style={styles.generatingContainer}>
-                      <ActivityIndicator size="large" color="#0088ff" />
-                      <Text style={styles.generatingText}>
-                        Generando estudio de mercado...
-                      </Text>
-                      <Text style={styles.generatingSubtext}>
-                        Estamos analizando datos de mercado, competencia, 
-                        tendencias y oportunidades para tu idea.
-                      </Text>
+          <Dialog.Title>Resultados del Estudio de Mercado</Dialog.Title>
+          <Dialog.ScrollArea>
+            <ScrollView contentContainerStyle={styles.dialogContent}>
+              {currentStudy && (
+                <>
+                  <Surface style={styles.resultCard}>
+                    <Title style={styles.cardTitle}>Tamaño del Mercado</Title>
+                    <Text style={styles.resultText}>Volumen Total: €{currentStudy.marketSize.total.toLocaleString()}</Text>
+                    <Text style={styles.resultText}>Crecimiento Histórico: {currentStudy.marketSize.historical.pastGrowth}%</Text>
+                    <Text style={styles.subsectionTitle}>Proyecciones:</Text>
+                    <Text style={styles.resultText}>1 año: {currentStudy.marketSize.projections.oneYear}%</Text>
+                    <Text style={styles.resultText}>3 años: {currentStudy.marketSize.projections.threeYears}%</Text>
+                    <Text style={styles.resultText}>5 años: {currentStudy.marketSize.projections.fiveYears}%</Text>
+                  </Surface>
+
+                  <Surface style={styles.resultCard}>
+                    <Title style={styles.cardTitle}>Segmentación del Mercado</Title>
+                    <Text style={styles.subsectionTitle}>Demografía</Text>
+                    <View style={styles.chipContainer}>
+                      {currentStudy.segmentation.demographic.age.map((age, index) => (
+                        <Chip key={`age-${index}`} style={styles.chip}>{age}</Chip>
+                      ))}
                     </View>
-                  ) : currentStudy ? (
-                    <View style={styles.studyContent}>
-                      {/* Sección de Tamaño de Mercado */}
-                      <View style={styles.studySection}>
-                        <Text style={styles.studySectionTitle}>Tamaño de Mercado</Text>
-                        <View style={styles.studyMetricRow}>
-                          <View style={styles.studyMetric}>
-                            <Text style={styles.metricValue}>
-                              {currentStudy.marketSize.local.toLocaleString('es-ES')}€
-                            </Text>
-                            <Text style={styles.metricLabel}>Mercado Local</Text>
-                          </View>
-                          <View style={styles.studyMetric}>
-                            <Text style={styles.metricValue}>
-                              {currentStudy.marketSize.national.toLocaleString('es-ES')}€
-                            </Text>
-                            <Text style={styles.metricLabel}>Mercado Nacional</Text>
-                          </View>
-                          <View style={styles.studyMetric}>
-                            <Text style={styles.metricValue}>
-                              {currentStudy.marketSize.growth}%
-                            </Text>
-                            <Text style={styles.metricLabel}>Crecimiento Anual</Text>
-                          </View>
-                        </View>
-                      </View>
-                      
-                      <Divider style={styles.divider} />
-                      
-                      {/* Sección de Crecimiento Proyectado */}
-                      <View style={styles.studySection}>
-                        <Text style={styles.studySectionTitle}>Crecimiento Proyectado</Text>
-                        <View style={styles.studyMetricRow}>
-                          <View style={styles.studyMetric}>
-                            <Text style={styles.metricValue}>
-                              {currentStudy.projectedGrowth.shortTerm}%
-                            </Text>
-                            <Text style={styles.metricLabel}>Corto Plazo (1 año)</Text>
-                          </View>
-                          <View style={styles.studyMetric}>
-                            <Text style={styles.metricValue}>
-                              {currentStudy.projectedGrowth.mediumTerm}%
-                            </Text>
-                            <Text style={styles.metricLabel}>Medio Plazo (3 años)</Text>
-                          </View>
-                          <View style={styles.studyMetric}>
-                            <Text style={styles.metricValue}>
-                              {currentStudy.projectedGrowth.longTerm}%
-                            </Text>
-                            <Text style={styles.metricLabel}>Largo Plazo (5 años)</Text>
-                          </View>
-                        </View>
-                      </View>
-                      
-                      <Divider style={styles.divider} />
-                      
-                      {/* Sección de Barreras de Entrada */}
-                      <View style={styles.studySection}>
-                        <Text style={styles.studySectionTitle}>Barreras de Entrada</Text>
-                        <View style={styles.barriersList}>
-                          <View style={styles.barrierItem}>
-                            <Text style={styles.barrierLabel}>Regulatorias:</Text>
-                            <Chip 
-                              style={[
-                                styles.barrierChip, 
-                                currentStudy.entryBarriers.regulatory === 'Alta' ? 
-                                  styles.highBarrier : 
-                                  styles.mediumBarrier
-                              ]}
-                            >
-                              {currentStudy.entryBarriers.regulatory}
-                            </Chip>
-                          </View>
-                          
-                          <View style={styles.barrierItem}>
-                            <Text style={styles.barrierLabel}>Tecnológicas:</Text>
-                            <Chip 
-                              style={[
-                                styles.barrierChip, 
-                                currentStudy.entryBarriers.technological === 'Alta' ? 
-                                  styles.highBarrier : 
-                                  styles.lowBarrier
-                              ]}
-                            >
-                              {currentStudy.entryBarriers.technological}
-                            </Chip>
-                          </View>
-                          
-                          <View style={styles.barrierItem}>
-                            <Text style={styles.barrierLabel}>Financieras:</Text>
-                            <Chip 
-                              style={[
-                                styles.barrierChip, 
-                                currentStudy.entryBarriers.financial === 'Alta' ? 
-                                  styles.highBarrier : 
-                                  styles.mediumBarrier
-                              ]}
-                            >
-                              {currentStudy.entryBarriers.financial}
-                            </Chip>
-                          </View>
-                          
-                          <View style={styles.barrierItem}>
-                            <Text style={styles.barrierLabel}>Competitivas:</Text>
-                            <Chip 
-                              style={[
-                                styles.barrierChip, 
-                                currentStudy.entryBarriers.competitive === 'Alta' ? 
-                                  styles.highBarrier : 
-                                  styles.mediumBarrier
-                              ]}
-                            >
-                              {currentStudy.entryBarriers.competitive}
-                            </Chip>
-                          </View>
-                        </View>
-                      </View>
-                      
-                      <Divider style={styles.divider} />
-                      
-                      {/* Nichos Desatendidos */}
-                      <View style={styles.studySection}>
-                        <Text style={styles.studySectionTitle}>Nichos Desatendidos</Text>
-                        {currentStudy.underservedNiches.map((niche, index) => (
-                          <View key={index} style={styles.nicheCard}>
-                            <View style={styles.nicheHeader}>
-                              <Text style={styles.nicheName}>{niche.name}</Text>
-                              <Chip style={styles.potentialChip}>
-                                {niche.potential}% Potencial
-                              </Chip>
-                            </View>
-                            <Text style={styles.nicheDescription}>
-                              {niche.description}
-                            </Text>
-                          </View>
+                    <Text style={styles.subsectionTitle}>Psicografía</Text>
+                    <View style={styles.chipContainer}>
+                      {currentStudy.segmentation.psychographic.interests.map((interest, index) => (
+                        <Chip key={`interest-${index}`} style={styles.chip}>{interest}</Chip>
                         ))}
                       </View>
-                      
-                      <Divider style={styles.divider} />
-                      
-                      {/* Previsión de Demanda */}
-                      <View style={styles.studySection}>
-                        <Text style={styles.studySectionTitle}>Previsión de Demanda</Text>
-                        <View style={styles.demandPreview}>
-                          <View style={styles.demandYear}>
-                            <Text style={styles.demandYearValue}>
-                              {currentStudy.demandPrediction.year1.toLocaleString('es-ES')}
-                            </Text>
-                            <Text style={styles.demandYearLabel}>Año 1</Text>
-                          </View>
-                          <View style={styles.demandProgressContainer}>
-                            <View style={styles.demandProgressBar}>
-                              <View 
-                                style={[
-                                  styles.demandProgress, 
-                                  {width: `${(currentStudy.demandPrediction.year1 / currentStudy.demandPrediction.year5) * 100}%`}
-                                ]} 
-                              />
-                            </View>
-                          </View>
-                        </View>
-                        
-                        <View style={styles.demandPreview}>
-                          <View style={styles.demandYear}>
-                            <Text style={styles.demandYearValue}>
-                              {currentStudy.demandPrediction.year3.toLocaleString('es-ES')}
-                            </Text>
-                            <Text style={styles.demandYearLabel}>Año 3</Text>
-                          </View>
-                          <View style={styles.demandProgressContainer}>
-                            <View style={styles.demandProgressBar}>
-                              <View 
-                                style={[
-                                  styles.demandProgress, 
-                                  {width: `${(currentStudy.demandPrediction.year3 / currentStudy.demandPrediction.year5) * 100}%`}
-                                ]} 
-                              />
-                            </View>
-                          </View>
-                        </View>
-                        
-                        <View style={styles.demandPreview}>
-                          <View style={styles.demandYear}>
-                            <Text style={styles.demandYearValue}>
-                              {currentStudy.demandPrediction.year5.toLocaleString('es-ES')}
-                            </Text>
-                            <Text style={styles.demandYearLabel}>Año 5</Text>
-                          </View>
-                          <View style={styles.demandProgressContainer}>
-                            <View style={styles.demandProgressBar}>
-                              <View style={[styles.demandProgress, {width: '100%'}]} />
-                            </View>
-                          </View>
-                        </View>
-                      </View>
-                      
-                      <Divider style={styles.divider} />
-                      
-                      {/* Viabilidad */}
-                      <View style={styles.studySection}>
-                        <Text style={styles.studySectionTitle}>Viabilidad General</Text>
-                        <View style={styles.viabilityContainer}>
-                          <View style={styles.viabilityScore}>
-                            <Text style={styles.viabilityScoreValue}>
-                              {currentStudy.viability.score}%
-                            </Text>
-                            <Text style={styles.viabilityScoreLabel}>
-                              Viabilidad
-                            </Text>
-                          </View>
-                          <View style={styles.viabilityMetrics}>
-                            <View style={styles.viabilityMetric}>
-                              <Text style={styles.viabilityMetricLabel}>
-                                Aceptación de Mercado:
-                              </Text>
-                              <Text style={styles.viabilityMetricValue}>
-                                {currentStudy.viability.marketAcceptance}%
-                              </Text>
-                            </View>
-                            <View style={styles.viabilityMetric}>
-                              <Text style={styles.viabilityMetricLabel}>
-                                Crecimiento Nacional:
-                              </Text>
-                              <Text style={styles.viabilityMetricValue}>
-                                {currentStudy.viability.nationalGrowth}%
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-                      </View>
+                  </Surface>
+
+                  <Surface style={styles.resultCard}>
+                    <Title style={styles.cardTitle}>Análisis Competitivo</Title>
+                    <List.Section>
+                      <List.Subheader>Competidores Locales</List.Subheader>
+                      {currentStudy.competition.local.companies.map((company, index) => (
+                        <List.Item
+                          key={`local-${index}`}
+                          title={company.name}
+                          description={`Fortalezas: ${company.strengths.join(', ')}`}
+                          left={props => <List.Icon {...props} icon="office-building" />}
+                        />
+                      ))}
+                    </List.Section>
+                  </Surface>
+
+                  <Surface style={styles.resultCard}>
+                    <Title style={styles.cardTitle}>Viabilidad del Negocio</Title>
+                    <View style={styles.scoreContainer}>
+                      <Text style={styles.scoreText}>{currentStudy.viability.score}%</Text>
+                      <ProgressBar
+                        progress={currentStudy.viability.score / 100}
+                        color={currentStudy.viability.score >= 70 ? '#4CAF50' : '#FF9800'}
+                        style={styles.progressBar}
+                      />
                     </View>
-                  ) : (
-                    <View style={styles.errorContainer}>
-                      <Text style={styles.errorText}>
-                        Error al generar el estudio de mercado
-                      </Text>
-                    </View>
+                    <Text style={styles.resultText}>ROI Estimado: {currentStudy.viability.estimatedROI}%</Text>
+                    <Text style={styles.subsectionTitle}>Fortalezas:</Text>
+                    {currentStudy.viability.strengths.map((strength, index) => (
+                      <Text key={index} style={styles.listItem}>• {strength}</Text>
+                    ))}
+                  </Surface>
+
+                  <Surface style={styles.resultCard}>
+                    <Title style={styles.cardTitle}>Localización Óptima</Title>
+                    <Text style={styles.resultText}>Ciudad: {currentStudy.optimalLocation.city}</Text>
+                    <Text style={styles.resultText}>Región: {currentStudy.optimalLocation.region}</Text>
+                    <Text style={styles.subsectionTitle}>Ventajas:</Text>
+                    {currentStudy.optimalLocation.advantages.map((advantage, index) => (
+                      <Text key={index} style={styles.listItem}>• {advantage}</Text>
+                    ))}
+                  </Surface>
+                </>
                   )}
                 </ScrollView>
               </Dialog.ScrollArea>
               <Dialog.Actions>
                 <Button onPress={() => setStudyDialogVisible(false)}>Cerrar</Button>
-                {currentStudy && (
-                  <Button 
-                    mode="contained" 
-                    onPress={() => {
-                      // Aquí se podría implementar la descarga o exportación del estudio
-                      setStudyDialogVisible(false);
-                    }}
-                  >
-                    Exportar Estudio
-                  </Button>
-                )}
               </Dialog.Actions>
-            </>
-          )}
         </Dialog>
       </Portal>
+
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        action={{
+          label: 'OK',
+          onPress: () => setSnackbarVisible(false),
+        }}
+      >
+        {error}
+      </Snackbar>
     </SafeAreaView>
   );
 }
@@ -512,262 +584,96 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  appBar: {
-    backgroundColor: '#fff',
-    elevation: 4,
-  },
   content: {
-    flex: 1,
     padding: 16,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#555',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#555',
-    marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#777',
-    textAlign: 'center',
-    marginTop: 8,
-    marginBottom: 24,
-  },
-  createButton: {
-    paddingHorizontal: 16,
-  },
-  ideasList: {
+  infoCard: {
     padding: 16,
-  },
-  ideaCard: {
     marginBottom: 16,
     elevation: 2,
+    borderRadius: 8,
   },
-  ideaHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
     marginBottom: 8,
   },
-  ideaHeaderText: {
-    flex: 1,
-  },
-  ideaTitle: {
+  description: {
     fontSize: 16,
-    fontWeight: 'bold',
-  },
-  ideaSector: {
-    fontSize: 14,
+    lineHeight: 24,
     color: '#666',
   },
-  ideaDescription: {
-    fontSize: 14,
-    color: '#444',
-    marginBottom: 8,
+  formCard: {
+    marginBottom: 16,
+    elevation: 2,
+    borderRadius: 8,
   },
-  ideaTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  tagChip: {
-    marginRight: 8,
-    marginBottom: 4,
-    height: 24,
-  },
-  studyDialog: {
-    maxHeight: '90%',
-  },
-  dialogScrollArea: {
-    paddingHorizontal: 0,
-  },
-  generatingContainer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  generatingText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  generatingSubtext: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-  },
-  studyContent: {
-    padding: 16,
-  },
-  studySection: {
-    marginBottom: 24,
-  },
-  studySectionTitle: {
+  formTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
     marginBottom: 16,
   },
-  studyMetricRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  studyMetric: {
-    flex: 1,
-    alignItems: 'center',
-    padding: 8,
-  },
-  metricValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#0088ff',
-  },
-  metricLabel: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  divider: {
-    marginVertical: 16,
-  },
-  barriersList: {
-    marginTop: 8,
-  },
-  barrierItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  barrierLabel: {
-    fontSize: 14,
-    color: '#444',
-  },
-  barrierChip: {
-    width: 100,
-    alignItems: 'center',
-  },
-  highBarrier: {
-    backgroundColor: '#ffcdd2',
-  },
-  mediumBarrier: {
-    backgroundColor: '#fff9c4',
-  },
-  lowBarrier: {
-    backgroundColor: '#c8e6c9',
-  },
-  nicheCard: {
-    backgroundColor: '#f0f4f8',
-    borderRadius: 8,
-    padding: 12,
+  input: {
     marginBottom: 12,
   },
-  nicheHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  generateButton: {
+    marginTop: 24,
+    marginBottom: 32,
+    paddingVertical: 8,
+    backgroundColor: '#6200ee',
+  },
+  dialog: {
+    maxHeight: '90%',
+  },
+  dialogContent: {
+    padding: 16,
+  },
+  resultCard: {
+    padding: 16,
+    marginBottom: 16,
+    elevation: 2,
+    borderRadius: 8,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  subsectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 12,
     marginBottom: 8,
   },
-  nicheName: {
+  resultText: {
     fontSize: 14,
-    fontWeight: 'bold',
-  },
-  potentialChip: {
-    backgroundColor: '#d1eaff',
-  },
-  nicheDescription: {
-    fontSize: 14,
-    color: '#555',
-  },
-  demandPreview: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  demandYear: {
-    width: 100,
-  },
-  demandYearValue: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  demandYearLabel: {
-    fontSize: 12,
+    marginBottom: 8,
     color: '#666',
   },
-  demandProgressContainer: {
-    flex: 1,
-    marginLeft: 12,
+  listItem: {
+    fontSize: 14,
+    marginLeft: 8,
+    marginBottom: 4,
+    color: '#666',
   },
-  demandProgressBar: {
-    height: 12,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 6,
-    overflow: 'hidden',
+  scoreContainer: {
+    marginVertical: 12,
   },
-  demandProgress: {
-    height: '100%',
-    backgroundColor: '#4CAF50',
-  },
-  viabilityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  viabilityScore: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#e3f2fd',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  viabilityScoreValue: {
+  scoreText: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#0088ff',
-  },
-  viabilityScoreLabel: {
-    fontSize: 12,
-    color: '#666',
-  },
-  viabilityMetrics: {
-    flex: 1,
-  },
-  viabilityMetric: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    textAlign: 'center',
     marginBottom: 8,
   },
-  viabilityMetricLabel: {
-    fontSize: 14,
-    color: '#444',
+  progressBar: {
+    height: 8,
+    borderRadius: 4,
   },
-  viabilityMetricValue: {
-    fontSize: 14,
-    fontWeight: 'bold',
+  chipContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 12,
   },
-  errorContainer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#f44336',
+  chip: {
+    margin: 4,
   },
 }); 

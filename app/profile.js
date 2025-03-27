@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
-import { Text, Surface, Divider, Button, IconButton, Badge, Avatar, Card, Chip, Appbar } from 'react-native-paper';
+import { Text, Surface, Divider, Button, IconButton, Badge, Avatar, Card, Chip, Appbar, Portal, Dialog } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
+import ROUTES from './routes';
 
 // Datos de usuario por defecto (se utilizarán si no hay perfil guardado)
 const DEFAULT_USER = {
@@ -50,6 +51,8 @@ export default function ProfileScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [profileImage, setProfileImage] = useState(DEFAULT_USER.avatar);
   const [userComments, setUserComments] = useState([]);
+  const [marketStudies, setMarketStudies] = useState([]);
+  const [showMarketStudies, setShowMarketStudies] = useState(false);
   
   // Cargar el perfil de usuario desde AsyncStorage
   useEffect(() => {
@@ -70,8 +73,9 @@ export default function ProfileScreen({ navigation }) {
           setProfileImage(savedProfileImage);
         }
         
-        // Cargar comentarios del usuario (simulados por ahora)
+        // Cargar comentarios y estudios de mercado
         loadUserComments();
+        loadMarketStudies();
       } catch (error) {
         console.error('Error al cargar el perfil:', error);
       } finally {
@@ -125,6 +129,27 @@ export default function ProfileScreen({ navigation }) {
       console.error('Error al cargar comentarios:', error);
       // Si hay un error, al menos mostramos comentarios de ejemplo
       setUserComments([]);
+    }
+  };
+  
+  // Cargar los estudios de mercado
+  const loadMarketStudies = async () => {
+    try {
+      const savedStudies = await AsyncStorage.getItem('marketStudies');
+      if (savedStudies) {
+        const studies = JSON.parse(savedStudies);
+        // Asegurarnos de que cada estudio tenga la estructura correcta
+        const validStudies = studies.map(study => ({
+          id: study.id || Date.now(),
+          date: study.date || new Date().toISOString(),
+          title: `Estudio de Mercado - ${new Date(study.date).toLocaleDateString()}`,
+          study: study.study || {}
+        }));
+        setMarketStudies(validStudies);
+      }
+    } catch (error) {
+      console.error('Error al cargar estudios de mercado:', error);
+      setMarketStudies([]);
     }
   };
   
@@ -372,11 +397,55 @@ export default function ProfileScreen({ navigation }) {
     );
   };
   
+  // Renderizar un estudio de mercado individual
+  const renderMarketStudy = (study) => {
+    if (!study || !study.study) return null;
+
+    const viabilityScore = study.study.viability?.score || 0;
+    const marketSize = study.study.marketSize?.total?.toLocaleString() || 'No disponible';
+    const location = study.study.optimalLocation?.city || 'No especificada';
+
+    return (
+      <Card key={study.id} style={styles.studyCard}>
+        <Card.Content>
+          <View style={styles.studyHeader}>
+            <Text style={styles.studyTitle}>
+              Estudio de Mercado - {new Date(study.date).toLocaleDateString()}
+            </Text>
+            <Chip mode="outlined" style={styles.scoreChip}>
+              {viabilityScore}% viable
+            </Chip>
+          </View>
+          <Divider style={styles.divider} />
+          <View style={styles.studyDetails}>
+            <Text style={styles.detailText}>Tamaño de mercado: €{marketSize}</Text>
+            <Text style={styles.detailText}>Ubicación óptima: {location}</Text>
+          </View>
+        </Card.Content>
+        <Card.Actions>
+          <Button 
+            mode="text" 
+            onPress={() => {
+              // Aquí puedes implementar la navegación al detalle del estudio
+              navigation.navigate('MarketStudyDetail', { study: study.study });
+            }}
+          >
+            Ver Detalles
+          </Button>
+        </Card.Actions>
+      </Card>
+    );
+  };
+  
   return (
     <SafeAreaView style={styles.container}>
-      <Appbar.Header>
+      <Appbar.Header style={styles.appBar}>
         <Appbar.BackAction onPress={() => navigation.goBack()} />
         <Appbar.Content title="Mi Perfil" />
+        <Appbar.Action
+          icon="chart-bar"
+          onPress={() => setShowMarketStudies(true)}
+        />
       </Appbar.Header>
       
       <View style={styles.header}>
@@ -451,6 +520,18 @@ export default function ProfileScreen({ navigation }) {
                 Añadir colaboradores
               </Button>
             </View>
+            
+            {/* Sección de Estudios de Mercado */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Estudios de Mercado</Text>
+              {marketStudies.length > 0 ? (
+                marketStudies.map(renderMarketStudy)
+              ) : (
+                <Text style={styles.emptyText}>
+                  No tienes estudios de mercado generados
+                </Text>
+              )}
+            </View>
           </>
         )}
       </ScrollView>
@@ -480,6 +561,22 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.bottomNavText}>Llamadas</Text>
         </TouchableOpacity>
       </View>
+      
+      {/* Diálogo de Estudios de Mercado */}
+      <Portal>
+        <Dialog
+          visible={showMarketStudies}
+          onDismiss={() => setShowMarketStudies(false)}
+          style={styles.studyDialog}
+        >
+          <Dialog.Title>Estudios de Mercado</Dialog.Title>
+          <Dialog.ScrollArea style={styles.dialogScrollArea}>
+            <ScrollView>
+              {marketStudies.map(renderMarketStudy)}
+            </ScrollView>
+          </Dialog.ScrollArea>
+        </Dialog>
+      </Portal>
     </SafeAreaView>
   );
 }
@@ -753,4 +850,37 @@ const styles = StyleSheet.create({
     margin: 0,
     padding: 0,
   },
+  studyCard: {
+    marginVertical: 8,
+    marginHorizontal: 16,
+    elevation: 2,
+  },
+  studyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  studyTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    flex: 1,
+  },
+  scoreChip: {
+    marginLeft: 8,
+  },
+  studyDetails: {
+    marginTop: 8,
+  },
+  detailText: {
+    fontSize: 14,
+    color: '#666',
+    marginVertical: 2,
+  },
+  studyDialog: {
+    maxHeight: '90%'
+  },
+  dialogScrollArea: {
+    maxHeight: '80%'
+  }
 }); 

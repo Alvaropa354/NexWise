@@ -15,6 +15,7 @@ import ProfileScreen from './profile';
 import ConfigScreen from './screens/ConfigScreen';
 import SubscriptionsScreen from './subscriptions';
 import OnboardingScreen from './screens/Onboarding';
+import MarketStudyScreen from './market-study';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -31,6 +32,32 @@ export default function AppNavigation() {
             backgroundColor: theme.colors.primary,
           },
           headerTintColor: '#fff',
+          cardStyle: { backgroundColor: theme.colors.background },
+          cardOverlayEnabled: true,
+          transitionSpec: {
+            open: {
+              animation: 'spring',
+              config: {
+                stiffness: 1000,
+                damping: 500,
+                mass: 3,
+                overshootClamping: true,
+                restDisplacementThreshold: 0.01,
+                restSpeedThreshold: 0.01,
+              },
+            },
+            close: {
+              animation: 'spring',
+              config: {
+                stiffness: 1000,
+                damping: 500,
+                mass: 3,
+                overshootClamping: true,
+                restDisplacementThreshold: 0.01,
+                restSpeedThreshold: 0.01,
+              },
+            },
+          },
         }}
       >
         <Stack.Screen name={ROUTES.HOME} component={HomeScreen} />
@@ -94,6 +121,23 @@ export default function AppNavigation() {
           name={ROUTES.SUBSCRIPTIONS}
           component={SubscriptionsScreen}
           options={{ title: 'Suscripciones' }}
+        />
+        <Stack.Screen
+          name={ROUTES.MARKET_STUDY}
+          component={MarketStudyScreen}
+          options={{ 
+            headerShown: true,
+            headerTitle: 'Estudio de Mercado',
+            headerBackVisible: true,
+            headerRight: () => (
+              <IconButton
+                icon="chart-bar"
+                size={24}
+                color="#fff"
+                onPress={() => navigation.navigate(ROUTES.MARKET_STUDY)}
+              />
+            )
+          }}
         />
       </Stack.Navigator>
     </NavigationContainer>
